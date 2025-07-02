@@ -4,19 +4,21 @@
   "version": "0.1.0",
   "identifier": "com.example.auto-agent",
   "build": {
-    "frontendDist": "../src/dist",
+    "frontendDist": "./src/dist",
     "devUrl": "http://localhost:5173",
-    "beforeDevCommand": "npm run dev --prefix ../src",
-    "beforeBuildCommand": "npm run build --prefix ../src"
+    "beforeDevCommand": "npm run dev --prefix src",
+    "beforeBuildCommand": "npm run build --prefix src"
   },
   "app": {
     "windows": [
       {
         "title": "auto-agent",
+        "label": "main",
         "width": 800,
         "height": 600,
         "resizable": true,
-        "fullscreen": false
+        "fullscreen": false,
+        "devtools": true
       }
     ],
     "security": {
@@ -33,5 +35,10 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ]
+  },
+  "plugins": {
+    "fs": {
+      "requireLiteralLeadingDot": false
+    }
   }
 }
