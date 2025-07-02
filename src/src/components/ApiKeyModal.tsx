@@ -1,6 +1,4 @@
 import React, { useState } from 'react';
-import { writeFile } from '@tauri-apps/plugin-fs';
-import { appDataDir } from '@tauri-apps/api/path';
 
 interface ApiKeyModalProps {
   onSave: (apiKey: string) => void;
@@ -8,19 +6,35 @@ interface ApiKeyModalProps {
 
 const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ onSave }) => {
   const [apiKey, setApiKey] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleSave = async () => {
     if (apiKey.trim()) {
+      setIsLoading(true);
       try {
-        const appDirPath = await appDataDir();
-        await writeFile({
-          path: `${appDirPath}.env`,
-          contents: `VITE_GROQ_API_KEY=${apiKey}`,
-        });
-        onSave(apiKey);
+        // Check if we're in Tauri environment
+        if (window.__TAURI__) {
+          const { writeFile } = await import('@tauri-apps/plugin-fs');
+          const { appDataDir } = await import('@tauri-apps/api/path');
+          
+          const appDirPath = await appDataDir();
+          const envPath = `${appDirPath}/.env`;
+          
+          await writeFile({
+            path: envPath,
+            contents: `VITE_GROQ_API_KEY=${apiKey.trim()}`,
+          });
+        } else {
+          // Fallback for web environment - use localStorage
+          localStorage.setItem('GROQ_API_KEY', apiKey.trim());
+        }
+        
+        onSave(apiKey.trim());
       } catch (error) {
-        console.error('Failed to save .env file:', error);
-        alert('Failed to save API key. Please try again.');
+        console.error('Failed to save API key:', error);
+        alert(`Failed to save API key: ${error}`);
+      } finally {
+        setIsLoading(false);
       }
     }
   };
@@ -39,10 +53,10 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ onSave }) => {
         />
         <button
           onClick={handleSave}
-          disabled={!apiKey.trim()}
+          disabled={!apiKey.trim() || isLoading}
           className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed text-white py-3 rounded-xl transition-all duration-200"
         >
-          Save API Key
+          {isLoading ? 'Saving...' : 'Save API Key'}
         </button>
       </div>
     </div>

@@ -2,8 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { Send, MessageCircle, Sparkles } from 'lucide-react';
 import Groq from 'groq-sdk';
 import ApiKeyModal from './ApiKeyModal';
-import { readTextFile } from '@tauri-apps/plugin-fs';
-import { appDataDir } from '@tauri-apps/api/path';
 
 interface Message {
   id: number;
@@ -28,16 +26,31 @@ const Chat: React.FC = () => {
   useEffect(() => {
     const loadApiKey = async () => {
       try {
-        const appDirPath = await appDataDir();
-        const envContent = await readTextFile(`${appDirPath}.env`);
-        const match = envContent.match(/VITE_GROQ_API_KEY=(.*)/);
-        if (match?.[1]) {
-          setApiKey(match[1]);
+        // Check if we're in Tauri environment
+        if (window.__TAURI__) {
+          const { readTextFile } = await import('@tauri-apps/plugin-fs');
+          const { appDataDir } = await import('@tauri-apps/api/path');
+          
+          const appDirPath = await appDataDir();
+          const envPath = `${appDirPath}/.env`;
+          const envContent = await readTextFile(envPath);
+          const match = envContent.match(/VITE_GROQ_API_KEY=(.*)/);
+          if (match?.[1]) {
+            setApiKey(match[1].trim());
+          } else {
+            setShowModal(true);
+          }
         } else {
-          setShowModal(true);
+          // Fallback for web environment - use localStorage
+          const storedKey = localStorage.getItem('GROQ_API_KEY');
+          if (storedKey) {
+            setApiKey(storedKey);
+          } else {
+            setShowModal(true);
+          }
         }
       } catch (error) {
-        console.error('Failed to read .env file:', error);
+        console.error('Failed to load API key:', error);
         setShowModal(true);
       }
     };
@@ -57,7 +70,11 @@ const Chat: React.FC = () => {
     setInputValue('');
 
     try {
-      const groq = new Groq({ apiKey });
+      const groq = new Groq({ 
+        apiKey,
+        dangerouslyAllowBrowser: true // Required for browser usage
+      });
+      
       const chatCompletion = await groq.chat.completions.create({
         messages: [
           {
